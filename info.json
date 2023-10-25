@@ -1,0 +1,7 @@
+﻿{
+  "Id": "ItemStorage",
+  "DisplayName": "ItemStorage",
+  "Author": "Natorius",
+  "Version": "1.0.0",
+  "EntryMethod": "ItemStorage.Main.Load"
+}
