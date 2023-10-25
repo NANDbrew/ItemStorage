@@ -64,46 +64,40 @@ namespace ItemStorage
     [HarmonyPatch(typeof(ShipItemCrate))]
     static class CratePatch
     {
-        [HarmonyPatch("OnLoad"), HarmonyPostfix]
-        static void LoadPostfix(ref ShipItemCrate __instance)
-        {
-            Utilities.Log("Added storage component to crate: {0}", __instance.name);
-            __instance.gameObject.AddComponent<StorageComponent>();
-        }
+        //[HarmonyPatch("OnLoad"), HarmonyPostfix]
+        //static void LoadPostfix(ref ShipItemCrate __instance)
+        //{
+        //    Utilities.Log("Added storage component to crate: {0}", __instance.name);
+        //    __instance.gameObject.AddComponent<StorageComponent>();
+        //}
 
-        [HarmonyPatch("OnAltActivate"), HarmonyPrefix]
-        static bool OnAltActivatePrefix(ref GoPointer activatingPointer, ref ShipItemCrate __instance)
-        {
-            Utilities.Log("crate alt activated");
-            var storage = __instance.gameObject.GetComponent<StorageComponent>();
-            storage.GetItemFromStorage(activatingPointer);
+        //[HarmonyPatch("OnAltActivate"), HarmonyPrefix]
+        //static bool OnAltActivatePrefix(ref GoPointer activatingPointer, ref ShipItemCrate __instance)
+        //{
+        //    Utilities.Log("crate alt activated");
+        //    var storage = __instance.gameObject.GetComponent<StorageComponent>();
+        //    storage.GetItemFromStorage(activatingPointer);
 
-            return false;
-        }
+        //    return false;
+        //}
     }
 
     [HarmonyPatch(typeof(ShipItem))]
     static class ItemPatch
     {
-        [HarmonyPatch("OnAltActivate"), HarmonyPrefix]
-        static bool OnAltActivatePrefix(ref ShipItem __instance)
-        {
-            if (__instance.GetType() == typeof(ShipItemCrate))
-                return true;
+        //[HarmonyPatch("OnAltActivate"), HarmonyPrefix]
+        //static bool OnAltActivatePrefix(ref ShipItem __instance)
+        //{
+        //    if (__instance.GetType() == typeof(ShipItemCrate))
+        //        return true;
 
-            if (StorageComponent.targetedStorage != null)
-            {
-                StorageComponent.targetedStorage.AddItemToStorage(__instance.gameObject);
-                return false;
-            }
+        //    if (StorageComponent.targetedStorage != null)
+        //    {
+        //        StorageComponent.targetedStorage.AddItemToStorage(__instance.gameObject);
+        //        return false;
+        //    }
 
-            return true;
-        }
-
-        [HarmonyPatch("ExitBoat"), HarmonyPostfix]
-        static void ExitBoatPostfix(ref ShipItem __instance)
-        {
-            Utilities.Log("{0} exiting boat", __instance.name);
-        }
+        //    return true;
+        //}
     }
 }
