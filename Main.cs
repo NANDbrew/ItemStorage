@@ -1,10 +1,6 @@
 ﻿using HarmonyLib;
 using System.Reflection;
-using UnityEngine;
 using UnityModManagerNet;
-using UnityEditor;
-using System.Linq;
-using System;
 
 namespace ItemStorage
 {
@@ -65,57 +61,49 @@ namespace ItemStorage
         }
     }
 
-    [HarmonyPatch(typeof(ShipItem))]
-    class ShipItemPatch
+    [HarmonyPatch(typeof(ShipItemCrate))]
+    static class CratePatch
     {
-        static ShipItemCrate crateBeingLookedAt;
-
-        [HarmonyPatch("Update"), HarmonyPostfix]
-        static void UpdatePostfix(ref ShipItem __instance, ref GoPointer ___pointedAtBy)
+        [HarmonyPatch("OnLoad"), HarmonyPostfix]
+        static void LoadPostfix(ref ShipItemCrate __instance)
         {
-            if (__instance.GetType() == typeof(ShipItemCrate) && ___pointedAtBy != null)
-                crateBeingLookedAt = __instance as ShipItemCrate;
+            Utilities.Log("Added storage component to crate: {0}", __instance.name);
+            __instance.gameObject.AddComponent<StorageComponent>();
         }
 
         [HarmonyPatch("OnAltActivate"), HarmonyPrefix]
+        static bool OnAltActivatePrefix(ref GoPointer activatingPointer, ref ShipItemCrate __instance)
+        {
+            Utilities.Log("crate alt activated");
+            var storage = __instance.gameObject.GetComponent<StorageComponent>();
+            storage.GetItemFromStorage(activatingPointer);
+
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(ShipItem))]
+    static class ItemPatch
+    {
+        [HarmonyPatch("OnAltActivate"), HarmonyPrefix]
         static bool OnAltActivatePrefix(ref ShipItem __instance)
         {
-            if (crateBeingLookedAt != null)
+            if (__instance.GetType() == typeof(ShipItemCrate))
+                return true;
+
+            if (StorageComponent.targetedStorage != null)
             {
-                var heldItemPrefab = __instance.GetComponent<SaveablePrefab>();
-                var cratePrefab = crateBeingLookedAt.GetContainedPrefab().GetComponent<SaveablePrefab>();
-
-                if (heldItemPrefab == null || cratePrefab == null)
-                    return true;
-
-                var heldItemPrefabIndex = heldItemPrefab.prefabIndex;
-                var cratePrefabIndex = cratePrefab.prefabIndex;
-
-                if (heldItemPrefabIndex == cratePrefabIndex)
-                {
-                    crateBeingLookedAt.amount += 1;
-                    crateBeingLookedAt.itemRigidbodyC.UpdateMass();
-                    __instance.DestroyItem();
-
-                    return false;
-                }
-                else if (crateBeingLookedAt.amount < 1)
-                {
-                    var heldItemDirectoryPrefab = PrefabsDirectory.instance.directory[heldItemPrefabIndex];
-
-                    // time to get screwy with reflection, yeah!
-                    Traverse.Create(crateBeingLookedAt).Field("containedPrefab").SetValue(heldItemDirectoryPrefab);
-
-                    crateBeingLookedAt.amount = 1;
-                    __instance.DestroyItem();
-
-                    return false;
-                }
-
-                return true;
+                StorageComponent.targetedStorage.AddItemToStorage(__instance.gameObject);
+                return false;
             }
-            else
-                return true;
+
+            return true;
+        }
+
+        [HarmonyPatch("ExitBoat"), HarmonyPostfix]
+        static void ExitBoatPostfix(ref ShipItem __instance)
+        {
+            Utilities.Log("{0} exiting boat", __instance.name);
         }
     }
 }
