@@ -5,7 +5,7 @@ namespace ItemStorage
 {
     public class Utilities
     {
-        private static UnityModManager.ModEntry.ModLogger logger;
+        private static UnityModManager.ModEntry.ModLogger logger = null;
 
         public enum LogType
         {
@@ -20,18 +20,11 @@ namespace ItemStorage
             Utilities.logger = logger;
         }
 
-        public static void Log(LogType log_type, string output)
-        {
-            if (log_type == LogType.Log)
-                logger.Log(output);
-            if (log_type == LogType.Warning)
-                logger.Warning(output);
-            if (log_type == LogType.Error)
-                logger.Error(output);
-        }
-
         public static void Log(LogType log_type, string format, params object[] items)
         {
+            if (logger == null)
+                throw new InvalidOperationException("Log functions cannot be used with an unset logger");
+
             if (log_type == LogType.Log)
                 logger.Log(string.Format(format, items));
             if (log_type == LogType.Warning)
