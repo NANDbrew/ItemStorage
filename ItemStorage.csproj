@@ -57,7 +57,7 @@
   <ItemGroup>
     <Compile Include="Main.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="StorageComponent.cs" />
+    <Compile Include="SaveCrateStorage.cs" />
     <Compile Include="Utilities.cs" />
   </ItemGroup>
   <ItemGroup>

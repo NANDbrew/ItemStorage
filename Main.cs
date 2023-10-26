@@ -19,6 +19,7 @@ namespace ItemStorage
 
     internal static class Main
     {
+        public static string modID;
         public static ModSettings settings;
         public static UnityModManager.ModEntry.ModLogger logger;
 
@@ -26,7 +27,9 @@ namespace ItemStorage
 
         static bool Load(UnityModManager.ModEntry modEntry)
         {
-            var harmony = new Harmony(modEntry.Info.Id);
+            modID = modEntry.Info.Id;
+
+            var harmony = new Harmony(modID);
             harmony.PatchAll(Assembly.GetExecutingAssembly());
 
             settings = UnityModManager.ModSettings.Load<ModSettings>(modEntry);
