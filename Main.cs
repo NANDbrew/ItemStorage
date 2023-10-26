@@ -5,63 +5,21 @@ using UnityModManagerNet;
 
 namespace ItemStorage
 {
-    public class ModSettings : UnityModManager.ModSettings, IDrawable
-    {
-        // place settings here
-
-        public override void Save(UnityModManager.ModEntry modEntry)
-        {
-            Save(this, modEntry);
-        }
-
-        public void OnChange() { }
-    }
-
     internal static class Main
     {
-        public static string modID;
-        public static ModSettings settings;
         public static UnityModManager.ModEntry.ModLogger logger;
 
         public static float timeSinceLastDebugOut = 0f;
 
         static bool Load(UnityModManager.ModEntry modEntry)
         {
-            modID = modEntry.Info.Id;
-
-            var harmony = new Harmony(modID);
+            var harmony = new Harmony(modEntry.Info.Id);
             harmony.PatchAll(Assembly.GetExecutingAssembly());
 
-            settings = UnityModManager.ModSettings.Load<ModSettings>(modEntry);
             logger = modEntry.Logger;
             Utilities.SetLogger(modEntry.Logger);
 
-            // uncomment if using settings
-            //modEntry.OnGUI = OnGUI;
-            //modEntry.OnSaveGUI = OnSaveGUI;
-            modEntry.OnUpdate = OnUpdate;
-
             return true;
-        }
-
-        static void OnGUI(UnityModManager.ModEntry modEntry)
-        {
-            settings.Draw(modEntry);
-        }
-
-        static void OnSaveGUI(UnityModManager.ModEntry modEntry)
-        {
-            settings.Save(modEntry);
-        }
-
-        static void OnUpdate(UnityModManager.ModEntry modEntry, float dt)
-        {
-            timeSinceLastDebugOut += dt;
-            //if (timeSinceLastDebugOut > 10)
-            //{
-            //    Utilities.Log("heartbeat");
-            //    timeSinceLastDebugOut = 0;
-            //}
         }
 
         public static void OverrideContainedPrefab(ShipItemCrate crate, int prefabIndex)
@@ -80,32 +38,15 @@ namespace ItemStorage
         [HarmonyPatch("Update"), HarmonyPostfix]
         static void UpdatePostfix(ref ShipItem __instance, ref GoPointer ___pointedAtBy)
         {
-            // I believe simply attempting a cast is better than checking the type based on:
-            // https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/type-testing-and-cast:
-            // "...where E is an expression that returns a value and T is the name of a type or
-            // a type parameter, produces the same result as:
-            //      E is T ? (T)(E) : (T)null
             var instanceAsCrate = __instance as ShipItemCrate;
+
             if (instanceAsCrate != null && targetedCrate == null && ___pointedAtBy != null)
-            {
                 targetedCrate = __instance as ShipItemCrate;
-                Utilities.Log("targetedCrate updated: {0}", __instance.name);
-            }
-            // This instance is not being looked at - but targetedCrate implies is is.
-            // This fixes the inconsistency.
+
             if (___pointedAtBy == null && targetedCrate == __instance)
-            {
                 targetedCrate = null;
-                Utilities.Log("targetedCrate cleared");
-            }
         }
 
-        // This method seems inefficient, since it has to retrieve the targetedCrate prefab,
-        //  and you might guess since we're patching a ShipItem, now a bunch of different ShipItems
-        //  will do duplicate work.
-        // Fortunately this isn't the case, since OnAltActivate implies the item is held, and the
-        //  player can only hold one item.
-        // Really, OnAltActivate shouldn't be called often enough that any of these values should be cached.
         [HarmonyPatch("OnAltActivate"), HarmonyPrefix]
         static bool OnAltActivatePrefix(ref ShipItem __instance)
         {
@@ -124,6 +65,7 @@ namespace ItemStorage
                 if (targetedCrate.amount < 1)   // < 1 since it's a float and we don't care if it's 1e-4
                 {
                     // TODO: update various properties of crate: item category, mass, goodC, etc.
+                    // TODO: experimentally verify crates of the same size are the same weight
                     // TO TEST: if it's another good, just grab that good's crate and trade them out?
 
                     // Time for some code atrocities, courtesy of reflection!

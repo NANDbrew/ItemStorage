@@ -5,8 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
-using UnityEngine.Playables;
-using UnityModManagerNet;
 
 namespace ItemStorage
 {
@@ -27,9 +25,6 @@ namespace ItemStorage
     class SaveLoadManagerPatch
     {
         [HarmonyPatch("SaveModData"), HarmonyPostfix]
-        // Normal practice would be to provide the mod ID as a parameter,
-        // but since this is assuming other mods may be patching this method as well,
-        // no reason not to hardcode it.
         static void SaveModDataPostfix(ref List<SaveablePrefab> ___currentPrefabs)
         {
             var crates = ___currentPrefabs
@@ -45,18 +40,10 @@ namespace ItemStorage
                 )
             ).ToList();
 
-            foreach (var dataObj in crateData)
-            {
-                Utilities.Log("Stored data for crate:");
-                Utilities.Log("> {0}", (Vector3)dataObj.position);
-                Utilities.Log("> {0} ({1})", dataObj.containedPrefabIndex,
-                    PrefabsDirectory.instance.directory[dataObj.containedPrefabIndex].name);
-            }
-
             // this should go in utilities eventually
             var formatter = new BinaryFormatter();
-            var filepath = string.Format("{0}/slot{1}_{2}.modsave",
-                Application.persistentDataPath, SaveSlots.currentSlot, Main.modID);
+            var filepath = string.Format("{0}/slot{1}_is.modsave",
+                Application.persistentDataPath, SaveSlots.currentSlot);
             var filestream = File.Create(filepath);
             formatter.Serialize(filestream, crateData);
             filestream.Close();
@@ -66,31 +53,38 @@ namespace ItemStorage
         static void LoadModDataPostfix()
         {
             var crates = GameObject.FindObjectsOfType<ShipItemCrate>();
-            Utilities.Log("Found {0} crates spawned", crates.Length);
 
             var formatter = new BinaryFormatter();
-            var filepath = string.Format("{0}/slot{1}_{2}.modsave",
-                Application.persistentDataPath, SaveSlots.currentSlot, Main.modID);
+            var filepath = string.Format("{0}/slot{1}_is.modsave",
+                Application.persistentDataPath, SaveSlots.currentSlot);
 
             // TODO: ensure mod save file creation date and save slot file creation date are the same
+            // TODO: nice messaging for warning players if:
+            //  - there's no mod save data
+            //  - the creation dates don't match
 
             if (File.Exists(filepath) == false)
             {
-                Utilities.Log("No mod save file found.");
                 return;
             }
                 
             var filestream = File.Open(filepath, FileMode.Open);
             var crateStorageData = formatter.Deserialize(filestream) as List<SaveCrateStorageData>;
             filestream.Close();
-            Utilities.Log("Loaded {0} crate storage data containers", crateStorageData.Count);
 
             foreach (var crate in crates)
             {
-                var matchingDataContainers = crateStorageData.Where(data => SamePosition(crate.transform.position, data.position)).ToList();
-                Utilities.Log("> {0} matching data containers found for crate \"{1}\"", matchingDataContainers.Count, crate.gameObject.name);
+                // TODO: check and warn player if multiple matching crates found
+                //  definitely a critical error: maybe pop up a notification telling the player
+                //  "CRITICAL ERROR: please forward your save files to Natorius to review"
+                //  or similar
+                //  ...do I want to ask for that
 
-                Main.OverrideContainedPrefab(crate, matchingDataContainers.First().containedPrefabIndex);
+                var matchingData = crateStorageData.Where(
+                    data => SamePosition(crate.transform.position, data.position))
+                    .First();
+
+                Main.OverrideContainedPrefab(crate, matchingData.containedPrefabIndex);
             }
 
             
@@ -98,8 +92,7 @@ namespace ItemStorage
 
         static bool SamePosition(Vector3 a, Vector3 b)
         {
-            //Utilities.Log("SQRMAG: {0}", (a - b).sqrMagnitude);
-            return (a - b).sqrMagnitude < 0.0001f;
+            return (a - b).sqrMagnitude < 0.0001f;  // value found experimentally, may need tweaking
         }
     }
 }
