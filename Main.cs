@@ -63,6 +63,13 @@ namespace ItemStorage
             //    timeSinceLastDebugOut = 0;
             //}
         }
+
+        public static void OverrideContainedPrefab(ShipItemCrate crate, int prefabIndex)
+        {
+            var newPrefab = PrefabsDirectory.instance.directory[prefabIndex];
+            Traverse.Create(crate).Field<GameObject>("containedPrefab").Value = newPrefab;
+            crate.name = newPrefab.GetComponent<ShipItem>().name;
+        }
     }
 
     [HarmonyPatch(typeof(ShipItem))]
@@ -120,9 +127,7 @@ namespace ItemStorage
                     // TO TEST: if it's another good, just grab that good's crate and trade them out?
 
                     // Time for some code atrocities, courtesy of reflection!
-                    var newPrefab = PrefabsDirectory.instance.directory[thisPrefabIndex];
-                    Traverse.Create(targetedCrate).Field<GameObject>("containedPrefab").Value = newPrefab;
-                    targetedCrate.name = __instance.name;
+                    Main.OverrideContainedPrefab(targetedCrate, thisPrefabIndex);
                     targetedCrate.amount = 1f;  // why the hell is this a float, RL?
                                                 // is it cause of liquids?
 

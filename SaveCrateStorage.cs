@@ -53,10 +53,6 @@ namespace ItemStorage
                     PrefabsDirectory.instance.directory[dataObj.containedPrefabIndex].name);
             }
 
-            Utilities.Log("Squashed position for crates:");
-            foreach (var crate in crateData)
-                Utilities.Log("> {0}", SquashVector(crate.position));
-
             // this should go in utilities eventually
             var formatter = new BinaryFormatter();
             var filepath = string.Format("{0}/slot{1}_{2}.modsave",
@@ -76,6 +72,8 @@ namespace ItemStorage
             var filepath = string.Format("{0}/slot{1}_{2}.modsave",
                 Application.persistentDataPath, SaveSlots.currentSlot, Main.modID);
 
+            // TODO: ensure mod save file creation date and save slot file creation date are the same
+
             if (File.Exists(filepath) == false)
             {
                 Utilities.Log("No mod save file found.");
@@ -87,37 +85,21 @@ namespace ItemStorage
             filestream.Close();
             Utilities.Log("Loaded {0} crate storage data containers", crateStorageData.Count);
 
-
             foreach (var crate in crates)
             {
-                Utilities.Log("Searching for data matching crate {0}", crate.name);
-                var matchingData = crateStorageData.Find(data =>
-                SquashVector(crate.transform.position) == SquashVector(data.position));
-                if (matchingData != null)
-                {
-                    Utilities.Log("Found matching data:");
-                    Utilities.Log("> position: {0}", matchingData.position);
-                    Utilities.Log("> contained prefab: {0} ({1})", matchingData.containedPrefabIndex,
-                        PrefabsDirectory.instance.directory[matchingData.containedPrefabIndex].name);
-                }
-                else Utilities.Log("No matching data found.");
+                var matchingDataContainers = crateStorageData.Where(data => SamePosition(crate.transform.position, data.position)).ToList();
+                Utilities.Log("> {0} matching data containers found for crate \"{1}\"", matchingDataContainers.Count, crate.gameObject.name);
+
+                Main.OverrideContainedPrefab(crate, matchingDataContainers.First().containedPrefabIndex);
             }
 
-            Utilities.Log("Squashed vectors of spawned crates:");
-            foreach (var crate in crates)
-                Utilities.Log("> {0}", SquashVector(crate.transform.position));
-
-            Utilities.Log("Squashed vectors of loaded crates:");
-            foreach (var savedCrate in crateStorageData)
-                Utilities.Log("> {0}", SquashVector(savedCrate.position));
-
-            Utilities.Log("TEST: {0}", SquashVector(crates.First().transform.position - FloatingOriginManager.instance.outCurrentOffset));
+            
         }
 
-        static string SquashVector(Vector3 vector)
+        static bool SamePosition(Vector3 a, Vector3 b)
         {
-            return string.Format("{0:F4}{1:F4}{2:F4}",
-                vector.x, vector.y, vector.z);
+            //Utilities.Log("SQRMAG: {0}", (a - b).sqrMagnitude);
+            return (a - b).sqrMagnitude < 0.0001f;
         }
     }
 }
