@@ -57,32 +57,40 @@
   <ItemGroup>
     <Compile Include="Main.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SaveCrateStorage.cs" />
-    <Compile Include="Utilities.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="info.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SailwindModUtilities\SailwindModUtilities.csproj">
+      <Project>{d5f629ee-6c4a-4cbe-bb9e-b3682cd4a7c6}</Project>
+      <Name>SailwindModUtilities</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>set "steamdir=G:\Steam\steamapps\common\Sailwind\Mods\$(TargetName)\"
 
 
+
 mkdir %25steamdir%25
 
 
-copy $(TargetFileName) %25steamdir%25\
 
+copy $(TargetFileName) %25steamdir%25
+copy SailwindModUtilities.dll %25steamdir%25
+copy info.json %25steamdir%25
 
-copy info.json %25steamdir%25\
 
 
 7z a $(TargetName).zip $(TargetFileName) info.json
 
 
+
 mkdir out
+
 
 move $(TargetName).zip out\</PostBuildEvent>
   </PropertyGroup>

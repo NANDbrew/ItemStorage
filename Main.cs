@@ -1,15 +1,23 @@
 ﻿using HarmonyLib;
+using SailwindModUtilities.Utilities;
+using SailwindModUtilities.Utilities.Persistence;
+using System;
 using System.Reflection;
 using UnityEngine;
 using UnityModManagerNet;
 
 namespace ItemStorage
 {
-    internal static class Main
+    static class Main
     {
-        public static UnityModManager.ModEntry.ModLogger logger;
+        [Serializable]
+        struct SaveCrateStorageData
+        {
+            public SerializableVector3 position;
+            public int containedPrefabIndex;
+        }
 
-        public static float timeSinceLastDebugOut = 0f;
+        static UnityModManager.ModEntry.ModLogger logger;
 
         static bool Load(UnityModManager.ModEntry modEntry)
         {
@@ -17,19 +25,44 @@ namespace ItemStorage
             harmony.PatchAll(Assembly.GetExecutingAssembly());
 
             logger = modEntry.Logger;
-            Utilities.SetLogger(modEntry.Logger);
+            Logging.SetLogger(logger);
+            DataManager.RegisterSaveFunction(modEntry.Info.Id, Save);
+            DataManager.RegisterLoadFunction(modEntry.Info.Id, Load);
 
             return true;
         }
 
+        static object Save()
+        {
+            return new SaveCrateStorageData
+            {
+                position = Vector3.one,
+                containedPrefabIndex = -1
+            };
+        }
+
+        static void Load(object savedData)
+        {
+            var data = (SaveCrateStorageData)savedData;
+            Logging.Log("> {0}", data.position);
+            Logging.Log("> {0}", data.containedPrefabIndex);
+        }
+
+        // TODO: replace with a reversepatch
         public static void OverrideContainedPrefab(ShipItemCrate crate, int prefabIndex)
         {
             var newPrefab = PrefabsDirectory.instance.directory[prefabIndex];
             Traverse.Create(crate).Field<GameObject>("containedPrefab").Value = newPrefab;
             crate.name = newPrefab.GetComponent<ShipItem>().name;
         }
+
+        static bool SamePosition(Vector3 a, Vector3 b)
+        {
+            return (a - b).sqrMagnitude < 1e-4f;  // value found experimentally, may need tweaking
+        }
     }
 
+    // TODO: split patches into separate file?
     [HarmonyPatch(typeof(ShipItem))]
     static class ItemPatch
     {
@@ -108,6 +141,26 @@ namespace ItemStorage
         {
             if (__instance.amount < 1f)
                 __instance.lookText = "empty crate";
+        }
+    }
+
+    [HarmonyPatch(typeof(SaveLoadManager))]
+    class SailwindSavePatches
+    {
+        [HarmonyPatch("SaveModData"), HarmonyPostfix]
+        static void SaveModDataPostfix()
+        {
+            Logging.Log("Beginning save procedure...");
+            DataManager.Save();
+            Logging.Log("Saving finished.");
+        }
+
+        [HarmonyPatch("LoadModData"), HarmonyPostfix]
+        static void LoadModDataPostfix()
+        {
+            Logging.Log("Beginning load procedure...");
+            DataManager.Load();
+            Logging.Log("Loading finished.");
         }
     }
 }
