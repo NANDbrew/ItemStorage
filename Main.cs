@@ -2,6 +2,8 @@
 using SailwindModUtilities.Utilities;
 using SailwindModUtilities.Utilities.Persistence;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityModManagerNet;
@@ -34,18 +36,41 @@ namespace ItemStorage
 
         static object Save()
         {
-            return new SaveCrateStorageData
-            {
-                position = Vector3.one,
-                containedPrefabIndex = -1
-            };
+            Logging.Log("Accessing list of prefabs registered to save.");
+            var currentPrefabs = GetPrefabsRegisteredForSave();
+            Logging.Log("List contains {0} objects:", currentPrefabs.Count);
+            foreach (var prefab in currentPrefabs)
+                Logging.Log("> {0}, location: ({1})", prefab.name, prefab.transform.position);
+            Logging.Log("Storing list of locations to file.");
+            var cachedLocations = currentPrefabs.Select(prefab => (SerializableVector3)prefab.transform.position).ToList();
+            return cachedLocations;
         }
 
         static void Load(object savedData)
         {
-            var data = (SaveCrateStorageData)savedData;
-            Logging.Log("> {0}", data.position);
-            Logging.Log("> {0}", data.containedPrefabIndex);
+            var cachedLocations = (List<SerializableVector3>)savedData;
+            Logging.Log("Received saved list of locations.");
+            Logging.Log("List contains {0} objects:", cachedLocations.Count);
+            foreach (var location in cachedLocations)
+                Logging.Log("> ({0})", (Vector3)location);
+            // This list should contain everything currently loaded, since part of the loading process is re-registering with the SaveLoadManager.
+            Logging.Log("Retrieving list of prefabs registered to save.");
+            var currentPrefabs = GetPrefabsRegisteredForSave();
+            Logging.Log("List contains {0} objects:", currentPrefabs.Count);
+            foreach (var prefab in currentPrefabs)
+                Logging.Log("> {0}, location: ({1})", prefab.name, prefab.transform.position);
+            if (cachedLocations.Count != currentPrefabs.Count)
+                Logging.Log("CRITICAL ERROR: List sizes do not match!");
+            else
+            {
+                Logging.Log("Comparing locations:");
+                for (int index = 0; index < cachedLocations.Count; index++)
+                {
+                    var matching = SamePosition((Vector3)cachedLocations[index], currentPrefabs[index].transform.position);
+                    Logging.Log("> {0}", matching ? "MATCHING" : "NOT MATCHING");
+                }
+            }
+            Logging.Log("Locations compared, loading finished.");
         }
 
         // TODO: replace with a reversepatch
@@ -54,6 +79,11 @@ namespace ItemStorage
             var newPrefab = PrefabsDirectory.instance.directory[prefabIndex];
             Traverse.Create(crate).Field<GameObject>("containedPrefab").Value = newPrefab;
             crate.name = newPrefab.GetComponent<ShipItem>().name;
+        }
+
+        public static List<SaveablePrefab> GetPrefabsRegisteredForSave()
+        {
+            return Traverse.Create(SaveLoadManager.instance).Field<List<SaveablePrefab>>("currentPrefabs").Value;
         }
 
         static bool SamePosition(Vector3 a, Vector3 b)
