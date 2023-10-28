@@ -1,12 +1,11 @@
 ﻿using HarmonyLib;
-using SailwindModUtilities.Utilities;
-using SailwindModUtilities.Utilities.Persistence;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityModManagerNet;
+using ModUtilities;
 
 namespace ItemStorage
 {
@@ -27,21 +26,19 @@ namespace ItemStorage
             harmony.PatchAll(Assembly.GetExecutingAssembly());
 
             logger = modEntry.Logger;
-            Logging.SetLogger(logger);
-            DataManager.RegisterSaveFunction(modEntry.Info.Id, Save);
-            DataManager.RegisterLoadFunction(modEntry.Info.Id, Load);
+            Persistence.Register(Save, Load);
 
             return true;
         }
 
         static object Save()
         {
-            Logging.Log("Accessing list of prefabs registered to save.");
+            logger.Log("Accessing list of prefabs registered to save.");
             var currentPrefabs = GetPrefabsRegisteredForSave();
-            Logging.Log("List contains {0} objects:", currentPrefabs.Count);
+            logger.Log($"List contains {currentPrefabs.Count} objects:");
             foreach (var prefab in currentPrefabs)
-                Logging.Log("> {0}, location: ({1})", prefab.name, prefab.transform.position);
-            Logging.Log("Storing list of locations to file.");
+                logger.Log($"> {prefab.name}, location: {prefab.transform.position}");
+            logger.Log("Storing list of locations to file.");
             var cachedLocations = currentPrefabs.Select(prefab => (SerializableVector3)prefab.transform.position).ToList();
             return cachedLocations;
         }
@@ -49,28 +46,28 @@ namespace ItemStorage
         static void Load(object savedData)
         {
             var cachedLocations = (List<SerializableVector3>)savedData;
-            Logging.Log("Received saved list of locations.");
-            Logging.Log("List contains {0} objects:", cachedLocations.Count);
+            logger.Log("Received saved list of locations.");
+            logger.Log($"List contains {cachedLocations.Count} objects:");
             foreach (var location in cachedLocations)
-                Logging.Log("> ({0})", (Vector3)location);
+                logger.Log($"> {(Vector3)location}");
             // This list should contain everything currently loaded, since part of the loading process is re-registering with the SaveLoadManager.
-            Logging.Log("Retrieving list of prefabs registered to save.");
+            logger.Log("Retrieving list of prefabs registered to save.");
             var currentPrefabs = GetPrefabsRegisteredForSave();
-            Logging.Log("List contains {0} objects:", currentPrefabs.Count);
+            logger.Log($"List contains {currentPrefabs.Count} objects:");
             foreach (var prefab in currentPrefabs)
-                Logging.Log("> {0}, location: ({1})", prefab.name, prefab.transform.position);
+                logger.Log($"> {prefab.name}, location: ({prefab.transform.position})");
             if (cachedLocations.Count != currentPrefabs.Count)
-                Logging.Log("CRITICAL ERROR: List sizes do not match!");
+                logger.Log("CRITICAL ERROR: List sizes do not match!");
             else
             {
-                Logging.Log("Comparing locations:");
+                logger.Log("Comparing locations:");
                 for (int index = 0; index < cachedLocations.Count; index++)
                 {
                     var matching = SamePosition((Vector3)cachedLocations[index], currentPrefabs[index].transform.position);
-                    Logging.Log("> {0}", matching ? "MATCHING" : "NOT MATCHING");
+                    logger.Log($"> matching: {matching.ToString().ToUpper()}");
                 }
             }
-            Logging.Log("Locations compared, loading finished.");
+            logger.Log("Locations compared, loading finished.");
         }
 
         // TODO: replace with a reversepatch
@@ -171,26 +168,6 @@ namespace ItemStorage
         {
             if (__instance.amount < 1f)
                 __instance.lookText = "empty crate";
-        }
-    }
-
-    [HarmonyPatch(typeof(SaveLoadManager))]
-    class SailwindSavePatches
-    {
-        [HarmonyPatch("SaveModData"), HarmonyPostfix]
-        static void SaveModDataPostfix()
-        {
-            Logging.Log("Beginning save procedure...");
-            DataManager.Save();
-            Logging.Log("Saving finished.");
-        }
-
-        [HarmonyPatch("LoadModData"), HarmonyPostfix]
-        static void LoadModDataPostfix()
-        {
-            Logging.Log("Beginning load procedure...");
-            DataManager.Load();
-            Logging.Log("Loading finished.");
         }
     }
 }

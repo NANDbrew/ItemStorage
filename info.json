@@ -1,7 +1,9 @@
 ﻿{
   "Id": "ItemStorage",
-  "DisplayName": "ItemStorage",
+  "DisplayName": "Item Storage",
   "Author": "Natorius",
   "Version": "1.0.0",
+  "Requirements": ["ModUtilities"],
+  "LoadAfter": ["ModUtilities"],
   "EntryMethod": "ItemStorage.Main.Load"
 }
