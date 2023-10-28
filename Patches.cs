@@ -12,29 +12,10 @@ namespace ItemStorage
         internal static Dictionary<int, Tuple<int, bool>> overrides = new Dictionary<int, Tuple<int, bool>>();
         static ShipItemCrate targetedCrate;
 
-        internal static void OverrideContainedPrefab(ShipItemCrate crate, int prefabIndex, bool isCooked)
+        internal static void OverrideContainedPrefab(ShipItemCrate crate, int prefabIndex)
         {
-            var newPrefab = PrefabsDirectory.instance.directory[prefabIndex];
-
-            Main.logger.Log($"Overriding prefab in crate \"{crate.name}\" with prefab \"{newPrefab.name}\"");
-
-            // TODO: if new prefab is contained in a pre-existing crate prefab, just replace values
-            //  with those of the crate prefab
-
-            Traverse.Create(crate).Field<GameObject>("containedPrefab").Value = newPrefab;
-            var newPrefabItem = newPrefab.GetComponent<ShipItem>();
-            crate.name = newPrefabItem.name;    // TODO: set name of gameObject as well
-            crate.tag = newPrefabItem.tag;
-            crate.category = newPrefabItem.category;
-            var newGood = Traverse.Create(newPrefabItem).Field<Good>("good").Value;
-            var crateTraverse = Traverse.Create(crate);
-            crateTraverse.Field<Good>("good").Value = newGood;
-            crateTraverse.Field<Good>("goodC").Value = newGood; // TODO: Verify that this is actually what goodC is supposed to be
-
-            if (isCooked)
-                targetedCrate.smokedFood = true;
-
-            RegisterOverride(crate, prefabIndex, isCooked);
+            Traverse.Create(crate).Field<GameObject>("containedPrefab").Value
+                = PrefabsDirectory.instance.directory[prefabIndex];
         }
 
         static void RegisterOverride(ShipItemCrate crate, int newPrefabIndex, bool isCooked)
@@ -63,6 +44,7 @@ namespace ItemStorage
             if ((__instance is ShipItemCrate) == false && targetedCrate != null)
             {
                 // Verify this instance has a prefabIndex
+                // TODO: is this necessary?
                 var thisSaveablePrefabComponent = __instance.gameObject.GetComponent<SaveablePrefab>();
                 if (thisSaveablePrefabComponent == null)
                     return true;
@@ -73,6 +55,7 @@ namespace ItemStorage
                 if (targetedCrate.amount < 1)   // < 1 since it's a float and we don't care if it's 1e-4
                 {
                     // Check if item has a valid crate
+                    // TODO: only allow replacement if crates are the same size
                     var existingCratePrefab = References.CratePrefabFromItem(__instance);
                     if (existingCratePrefab != null)
                     {
@@ -84,6 +67,7 @@ namespace ItemStorage
                         newCrate.GetComponent<ShipItem>().sold = true;
                         newCrate.GetComponent<SaveablePrefab>().RegisterToSave();
                         newCrate.GetComponent<Good>().RegisterAsMissionless();
+                        newCrate.GetComponent<ShipItemCrate>().amount = 1f;
 
                         __instance.DestroyItem();
                         return false;
@@ -94,13 +78,31 @@ namespace ItemStorage
                         return true;
 
                     // Time for some code atrocities, courtesy of reflection!
-                    var cooked = __instance.GetComponent<CookableFood>() &&
-                        __instance.amount >= 1f && __instance.amount < 1.75f;
-                    OverrideContainedPrefab(targetedCrate, thisPrefabIndex, cooked);
+                    OverrideContainedPrefab(targetedCrate, thisPrefabIndex);
+
+                    // Now set the relevant parameters
+                    targetedCrate.gameObject.name = "custom crate";
+                    targetedCrate.name = __instance.name;
+                    targetedCrate.tag = __instance.tag;
+                    targetedCrate.category = __instance.category;
                     targetedCrate.amount = 1f;
 
-                    __instance.DestroyItem();
+                    // Set Goods associated to null.
+                    // If this crate had an associated Good, it would be replaced by a prefab above.
+                    var crateTraverse = Traverse.Create(targetedCrate);
+                    crateTraverse.Field<Good>("good").Value = null;
+                    crateTraverse.Field<Good>("goodC").Value = null;
+                    GameObject.Destroy(targetedCrate.GetComponent<Good>());
 
+                    // Handle food items
+                    var isCooked = __instance.GetComponent<CookableFood>() &&
+                        __instance.amount >= 1f && __instance.amount < 1.75f;
+                    if (isCooked)
+                        targetedCrate.smokedFood = true;
+
+                    RegisterOverride(targetedCrate, thisPrefabIndex, isCooked);
+
+                    __instance.DestroyItem();
                     return false;
                 }
 
