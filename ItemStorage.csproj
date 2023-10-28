@@ -70,6 +70,7 @@
     <None Include="info.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ModUtilities\ModUtilities.csproj">
