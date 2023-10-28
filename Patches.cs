@@ -1,4 +1,6 @@
 ﻿using HarmonyLib;
+using ModUtilities;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ItemStorage
@@ -6,14 +8,24 @@ namespace ItemStorage
     [HarmonyPatch(typeof(ShipItem))]
     static class ItemPatch
     {
+        internal static Dictionary<int, int> overrides = new Dictionary<int, int>();
         static ShipItemCrate targetedCrate;
 
-        // TODO: replace with a reversepatch
-        static void OverrideContainedPrefab(ShipItemCrate crate, int prefabIndex)
+        internal static void OverrideContainedPrefab(ShipItemCrate crate, int prefabIndex)
         {
             var newPrefab = PrefabsDirectory.instance.directory[prefabIndex];
+
+            Main.logger.Log($"Overriding prefab in crate \"{crate.name}\" with prefab \"{newPrefab.name}\"");
+
             Traverse.Create(crate).Field<GameObject>("containedPrefab").Value = newPrefab;
             crate.name = newPrefab.GetComponent<ShipItem>().name;
+            RegisterOverride(crate, prefabIndex);
+        }
+
+        static void RegisterOverride(ShipItemCrate crate, int newPrefabIndex)
+        {
+            var crateGUID = crate.GetComponent<GUID>().ID;
+            overrides[crateGUID] = newPrefabIndex;
         }
 
         [HarmonyPatch("Update"), HarmonyPostfix]
@@ -51,8 +63,7 @@ namespace ItemStorage
 
                     // Time for some code atrocities, courtesy of reflection!
                     OverrideContainedPrefab(targetedCrate, thisPrefabIndex);
-                    targetedCrate.amount = 1f;  // why the hell is this a float, RL?
-                                                // is it cause of liquids?
+                    targetedCrate.amount = 1f;
 
                     __instance.DestroyItem();
 

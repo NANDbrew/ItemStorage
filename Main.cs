@@ -1,4 +1,6 @@
 ﻿using HarmonyLib;
+using ModUtilities;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityModManagerNet;
 
@@ -6,7 +8,7 @@ namespace ItemStorage
 {
     static class Main
     {
-        static UnityModManager.ModEntry.ModLogger logger;
+        internal static UnityModManager.ModEntry.ModLogger logger;
 
         static bool Load(UnityModManager.ModEntry modEntry)
         {
@@ -14,19 +16,29 @@ namespace ItemStorage
             harmony.PatchAll(Assembly.GetExecutingAssembly());
 
             logger = modEntry.Logger;
-            //Persistence.Register(Save, Load);
+            Persistence.Register(SaveCrateOverrides, LoadCrateOverrides);
 
             return true;
         }
 
-        static object Save()
+        static object SaveCrateOverrides()
         {
-            return null;
+            Main.logger.Log($"Saving {ItemPatch.overrides.Count} crate prefab overrides.");
+            return ItemPatch.overrides;
         }
 
-        static void Load(object savedData)
+        static void LoadCrateOverrides(object savedData)
         {
+            var overrides = (Dictionary<int, int>)savedData;
+            foreach(var overrideEntry in overrides)
+            {
+                var crate = GUID.FindObjectByID(overrideEntry.Key).GetComponent<ShipItemCrate>();
+                ItemPatch.OverrideContainedPrefab(crate, overrideEntry.Value);
+                ItemPatch.overrides[overrideEntry.Key] = overrideEntry.Value;
+            }
 
+            
+            Main.logger.Log($"Loaded {ItemPatch.overrides.Count} saved crate prefab overrides.");
         }
     }
 }
