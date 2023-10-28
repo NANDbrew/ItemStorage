@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using ModUtilities;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,18 +9,21 @@ namespace ItemStorage
     [HarmonyPatch(typeof(ShipItem))]
     static class ItemPatch
     {
-        internal static Dictionary<int, int> overrides = new Dictionary<int, int>();
+        internal static Dictionary<int, Tuple<int, bool>> overrides = new Dictionary<int, Tuple<int, bool>>();
         static ShipItemCrate targetedCrate;
 
-        internal static void OverrideContainedPrefab(ShipItemCrate crate, int prefabIndex)
+        internal static void OverrideContainedPrefab(ShipItemCrate crate, int prefabIndex, bool isCooked)
         {
             var newPrefab = PrefabsDirectory.instance.directory[prefabIndex];
 
             Main.logger.Log($"Overriding prefab in crate \"{crate.name}\" with prefab \"{newPrefab.name}\"");
 
+            // TODO: if new prefab is contained in a pre-existing crate prefab, just replace values
+            //  with those of the crate prefab
+
             Traverse.Create(crate).Field<GameObject>("containedPrefab").Value = newPrefab;
             var newPrefabItem = newPrefab.GetComponent<ShipItem>();
-            crate.name = newPrefabItem.name;
+            crate.name = newPrefabItem.name;    // TODO: set name of gameObject as well
             crate.tag = newPrefabItem.tag;
             crate.category = newPrefabItem.category;
             var newGood = Traverse.Create(newPrefabItem).Field<Good>("good").Value;
@@ -27,19 +31,16 @@ namespace ItemStorage
             crateTraverse.Field<Good>("good").Value = newGood;
             crateTraverse.Field<Good>("goodC").Value = newGood; // TODO: Verify that this is actually what goodC is supposed to be
 
-            if (newPrefab.GetComponent<CookableFood>() != null) //&&
-                        //__instance.amount >= 1f && __instance.amount < 1.75f)   // TODO: verify that >= 1f is correct
-                        // TODO: figure out how to save this check
-                        // right now, all food is assumed to be cooked
+            if (isCooked)
                 targetedCrate.smokedFood = true;
 
-            RegisterOverride(crate, prefabIndex);
+            RegisterOverride(crate, prefabIndex, isCooked);
         }
 
-        static void RegisterOverride(ShipItemCrate crate, int newPrefabIndex)
+        static void RegisterOverride(ShipItemCrate crate, int newPrefabIndex, bool isCooked)
         {
             var crateGUID = crate.GetComponent<GUID>().ID;
-            overrides[crateGUID] = newPrefabIndex;
+            overrides[crateGUID] = new Tuple<int, bool>(newPrefabIndex, isCooked);
         }
 
         [HarmonyPatch("Update"), HarmonyPostfix]
@@ -71,15 +72,14 @@ namespace ItemStorage
                 //  so we should skip all of the code that calculates that and just overwrite it.
                 if (targetedCrate.amount < 1)   // < 1 since it's a float and we don't care if it's 1e-4
                 {
-                    // TODO: It looks like food items won't automatically save their state. I'll have to categorize
-                    // the crate as uncooked, cooked, or burnt, and then override the amount of any dispensed food
-                    // with the crate category.
-                    //
-                    // For now, as a shortcut, I can just store if it's cooked or uncooked. Maybe don't allow
-                    // storing cooked food?
+                    // TODO: allow for storing burnt food?
+                    if (__instance.GetComponent<CookableFood>() && __instance.amount >= 1.75f)
+                        return true;
 
                     // Time for some code atrocities, courtesy of reflection!
-                    OverrideContainedPrefab(targetedCrate, thisPrefabIndex);
+                    var cooked = __instance.GetComponent<CookableFood>() &&
+                        __instance.amount >= 1f && __instance.amount < 1.75f;
+                    OverrideContainedPrefab(targetedCrate, thisPrefabIndex, cooked);
                     targetedCrate.amount = 1f;
 
                     __instance.DestroyItem();

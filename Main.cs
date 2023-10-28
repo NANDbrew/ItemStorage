@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using ModUtilities;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityModManagerNet;
@@ -29,11 +30,11 @@ namespace ItemStorage
 
         static void LoadCrateOverrides(object savedData)
         {
-            var overrides = (Dictionary<int, int>)savedData;
+            var overrides = (Dictionary<int, Tuple<int, bool>>)savedData;
             foreach(var overrideEntry in overrides)
             {
                 var crate = GUID.FindObjectByID(overrideEntry.Key).GetComponent<ShipItemCrate>();
-                ItemPatch.OverrideContainedPrefab(crate, overrideEntry.Value);
+                ItemPatch.OverrideContainedPrefab(crate, overrideEntry.Value.Item1, overrideEntry.Value.Item2);
                 // The below is not necessary since OverrideContainedPrefab already registers the crate
                 //ItemPatch.overrides[overrideEntry.Key] = overrideEntry.Value;
             }
