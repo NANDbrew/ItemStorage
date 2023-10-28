@@ -60,7 +60,7 @@ namespace ItemStorage
         {
             // Crates are not a valid item to store in crates
             // Only proceed if this instance is something else
-            if ((__instance is ShipItemCrate) == false)
+            if ((__instance is ShipItemCrate) == false && targetedCrate != null)
             {
                 // Verify this instance has a prefabIndex
                 var thisSaveablePrefabComponent = __instance.gameObject.GetComponent<SaveablePrefab>();
@@ -72,6 +72,23 @@ namespace ItemStorage
                 //  so we should skip all of the code that calculates that and just overwrite it.
                 if (targetedCrate.amount < 1)   // < 1 since it's a float and we don't care if it's 1e-4
                 {
+                    // Check if item has a valid crate
+                    var existingCratePrefab = References.CratePrefabFromItem(__instance);
+                    if (existingCratePrefab != null)
+                    {
+                        var position = targetedCrate.transform.position;
+                        var rotation = targetedCrate.transform.rotation;
+                        targetedCrate.DestroyItem();
+
+                        var newCrate = GameObject.Instantiate(existingCratePrefab, position, rotation);
+                        newCrate.GetComponent<ShipItem>().sold = true;
+                        newCrate.GetComponent<SaveablePrefab>().RegisterToSave();
+                        newCrate.GetComponent<Good>().RegisterAsMissionless();
+
+                        __instance.DestroyItem();
+                        return false;
+                    }
+
                     // TODO: allow for storing burnt food?
                     if (__instance.GetComponent<CookableFood>() && __instance.amount >= 1.75f)
                         return true;
