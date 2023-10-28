@@ -1,23 +1,13 @@
 ﻿using HarmonyLib;
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityModManagerNet;
-using ModUtilities;
 
 namespace ItemStorage
 {
     static class Main
     {
-        [Serializable]
-        struct SaveCrateStorageData
-        {
-            public SerializableVector3 position;
-            public int containedPrefabIndex;
-        }
-
         static UnityModManager.ModEntry.ModLogger logger;
 
         static bool Load(UnityModManager.ModEntry modEntry)
@@ -26,48 +16,19 @@ namespace ItemStorage
             harmony.PatchAll(Assembly.GetExecutingAssembly());
 
             logger = modEntry.Logger;
-            Persistence.Register(Save, Load);
+            //Persistence.Register(Save, Load);
 
             return true;
         }
 
         static object Save()
         {
-            logger.Log("Accessing list of prefabs registered to save.");
-            var currentPrefabs = GetPrefabsRegisteredForSave();
-            logger.Log($"List contains {currentPrefabs.Count} objects:");
-            foreach (var prefab in currentPrefabs)
-                logger.Log($"> {prefab.name}, location: {prefab.transform.position}");
-            logger.Log("Storing list of locations to file.");
-            var cachedLocations = currentPrefabs.Select(prefab => (SerializableVector3)prefab.transform.position).ToList();
-            return cachedLocations;
+            return null;
         }
 
         static void Load(object savedData)
         {
-            var cachedLocations = (List<SerializableVector3>)savedData;
-            logger.Log("Received saved list of locations.");
-            logger.Log($"List contains {cachedLocations.Count} objects:");
-            foreach (var location in cachedLocations)
-                logger.Log($"> {(Vector3)location}");
-            // This list should contain everything currently loaded, since part of the loading process is re-registering with the SaveLoadManager.
-            logger.Log("Retrieving list of prefabs registered to save.");
-            var currentPrefabs = GetPrefabsRegisteredForSave();
-            logger.Log($"List contains {currentPrefabs.Count} objects:");
-            foreach (var prefab in currentPrefabs)
-                logger.Log($"> {prefab.name}, location: ({prefab.transform.position})");
-            if (cachedLocations.Count != currentPrefabs.Count)
-                logger.Log("CRITICAL ERROR: List sizes do not match!");
-            else
-            {
-                logger.Log("Comparing locations:");
-                for (int index = 0; index < cachedLocations.Count; index++)
-                {
-                    var matching = SamePosition((Vector3)cachedLocations[index], currentPrefabs[index].transform.position);
-                    logger.Log($"> matching: {matching.ToString().ToUpper()}");
-                }
-            }
-            logger.Log("Locations compared, loading finished.");
+
         }
 
         // TODO: replace with a reversepatch
