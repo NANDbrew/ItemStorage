@@ -39,25 +39,20 @@ namespace ItemStorage
         [HarmonyPatch("OnAltActivate"), HarmonyPrefix]
         static bool OnAltActivatePrefix(ref ShipItem __instance)
         {
-            // Crates are not a valid item to store in crates
-            // Only proceed if this instance is something else
+            // TODO: allow mass transfer of crate contents like barrels
             if ((__instance is ShipItemCrate) == false && targetedCrate != null)
             {
-                // Verify this instance has a prefabIndex
-                // TODO: is this necessary?
-                var thisSaveablePrefabComponent = __instance.gameObject.GetComponent<SaveablePrefab>();
-                if (thisSaveablePrefabComponent == null)
-                    return true;
-                var thisPrefabIndex = thisSaveablePrefabComponent.prefabIndex;
+                var thisPrefabIndex = __instance.gameObject.GetComponent<SaveablePrefab>().prefabIndex;
+                var crateItemPrefabIndex = targetedCrate.GetContainedPrefab().
+                    GetComponent<SaveablePrefab>().prefabIndex;
 
-                // Small detour here; if the crate is empty, we don't care what item it had before;
-                //  so we should skip all of the code that calculates that and just overwrite it.
-                if (targetedCrate.amount < 1)   // < 1 since it's a float and we don't care if it's 1e-4
+                if (targetedCrate.amount < 1f && thisPrefabIndex != crateItemPrefabIndex)
                 {
-                    // Check if item has a valid crate
-                    // TODO: only allow replacement if crates are the same size
                     var existingCratePrefab = References.CratePrefabFromItem(__instance);
-                    if (existingCratePrefab != null)
+                    if (existingCratePrefab != null &&
+                        References.GetCrateSize(targetedCrate) == 
+                        References.GetCrateSize(existingCratePrefab.GetComponent<ShipItemCrate>()
+                        ))
                     {
                         var position = targetedCrate.transform.position;
                         var rotation = targetedCrate.transform.rotation;
@@ -80,21 +75,12 @@ namespace ItemStorage
                     // Time for some code atrocities, courtesy of reflection!
                     OverrideContainedPrefab(targetedCrate, thisPrefabIndex);
 
-                    // Now set the relevant parameters
                     targetedCrate.gameObject.name = "custom crate";
                     targetedCrate.name = __instance.name;
                     targetedCrate.tag = __instance.tag;
                     targetedCrate.category = __instance.category;
                     targetedCrate.amount = 1f;
 
-                    // Set Goods associated to null.
-                    // If this crate had an associated Good, it would be replaced by a prefab above.
-                    var crateTraverse = Traverse.Create(targetedCrate);
-                    crateTraverse.Field<Good>("good").Value = null;
-                    crateTraverse.Field<Good>("goodC").Value = null;
-                    GameObject.Destroy(targetedCrate.GetComponent<Good>());
-
-                    // Handle food items
                     var isCooked = __instance.GetComponent<CookableFood>() &&
                         __instance.amount >= 1f && __instance.amount < 1.75f;
                     if (isCooked)
@@ -106,16 +92,6 @@ namespace ItemStorage
                     return false;
                 }
 
-                // Check for the prefab index of the crate's stored item
-                // I think this HAS to exist, but just in case we'll do a null check
-                // We can at least assume targetedCrate has a containedPrefab, since it must by definition
-                var crateItemSaveablePrefabComponent = targetedCrate.GetContainedPrefab().
-                    GetComponent<SaveablePrefab>();
-                if (crateItemSaveablePrefabComponent == null)
-                    return true;
-                var crateItemPrefabIndex = crateItemSaveablePrefabComponent.prefabIndex;
-
-                // The moment of truth: do they match?
                 if (thisPrefabIndex != crateItemPrefabIndex)
                     return true;
 

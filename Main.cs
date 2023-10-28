@@ -34,9 +34,8 @@ namespace ItemStorage
             foreach(var overrideEntry in overrides)
             {
                 var crate = GUID.FindObjectByID(overrideEntry.Key).GetComponent<ShipItemCrate>();
-                ItemPatch.OverrideContainedPrefab(crate, overrideEntry.Value.Item1, overrideEntry.Value.Item2);
-                // The below is not necessary since OverrideContainedPrefab already registers the crate
-                //ItemPatch.overrides[overrideEntry.Key] = overrideEntry.Value;
+                ItemPatch.OverrideContainedPrefab(crate, overrideEntry.Value.Item1);
+                ItemPatch.overrides[overrideEntry.Key] = overrideEntry.Value;
             }
 
             
