@@ -18,7 +18,21 @@ namespace ItemStorage
             Main.logger.Log($"Overriding prefab in crate \"{crate.name}\" with prefab \"{newPrefab.name}\"");
 
             Traverse.Create(crate).Field<GameObject>("containedPrefab").Value = newPrefab;
-            crate.name = newPrefab.GetComponent<ShipItem>().name;
+            var newPrefabItem = newPrefab.GetComponent<ShipItem>();
+            crate.name = newPrefabItem.name;
+            crate.tag = newPrefabItem.tag;
+            crate.category = newPrefabItem.category;
+            var newGood = Traverse.Create(newPrefabItem).Field<Good>("good").Value;
+            var crateTraverse = Traverse.Create(crate);
+            crateTraverse.Field<Good>("good").Value = newGood;
+            crateTraverse.Field<Good>("goodC").Value = newGood; // TODO: Verify that this is actually what goodC is supposed to be
+
+            if (newPrefab.GetComponent<CookableFood>() != null) //&&
+                        //__instance.amount >= 1f && __instance.amount < 1.75f)   // TODO: verify that >= 1f is correct
+                        // TODO: figure out how to save this check
+                        // right now, all food is assumed to be cooked
+                targetedCrate.smokedFood = true;
+
             RegisterOverride(crate, prefabIndex);
         }
 
@@ -57,9 +71,12 @@ namespace ItemStorage
                 //  so we should skip all of the code that calculates that and just overwrite it.
                 if (targetedCrate.amount < 1)   // < 1 since it's a float and we don't care if it's 1e-4
                 {
-                    // TODO: update various properties of crate: item category, mass, goodC, etc.
-                    // TODO: experimentally verify crates of the same size are the same weight
-                    // TO TEST: if it's another good, just grab that good's crate and trade them out?
+                    // TODO: It looks like food items won't automatically save their state. I'll have to categorize
+                    // the crate as uncooked, cooked, or burnt, and then override the amount of any dispensed food
+                    // with the crate category.
+                    //
+                    // For now, as a shortcut, I can just store if it's cooked or uncooked. Maybe don't allow
+                    // storing cooked food?
 
                     // Time for some code atrocities, courtesy of reflection!
                     OverrideContainedPrefab(targetedCrate, thisPrefabIndex);
@@ -84,6 +101,7 @@ namespace ItemStorage
                     return true;
 
                 targetedCrate.amount += 1;
+                targetedCrate.itemRigidbodyC.UpdateMass();
                 __instance.DestroyItem();
 
                 return false;
