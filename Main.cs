@@ -9,15 +9,15 @@ namespace ItemStorage
 {
     static class Main
     {
-        internal static UnityModManager.ModEntry.ModLogger logger;
+        public static ModUtilities.LogManager logger;
 
         static bool Load(UnityModManager.ModEntry modEntry)
         {
             var harmony = new Harmony(modEntry.Info.Id);
             harmony.PatchAll(Assembly.GetExecutingAssembly());
 
-            logger = modEntry.Logger;
-            Persistence.Register(SaveCrateOverrides, LoadCrateOverrides);
+            logger = new LogManager(modEntry.Logger);
+            Persistence.Register(modEntry.Info.Id, SaveCrateOverrides, LoadCrateOverrides);
 
             return true;
         }
@@ -30,15 +30,8 @@ namespace ItemStorage
 
         static void LoadCrateOverrides(object savedData)
         {
-            var overrides = (Dictionary<int, Tuple<int, bool>>)savedData;
-            foreach(var overrideEntry in overrides)
-            {
-                var crate = GUID.FindObjectByID(overrideEntry.Key).GetComponent<ShipItemCrate>();
-                ItemPatch.OverrideContainedPrefab(crate, overrideEntry.Value.Item1);
-                ItemPatch.overrides[overrideEntry.Key] = overrideEntry.Value;
-            }
-
-            
+            ItemPatch.overrides = (Dictionary<int, Tuple<int, bool>>)savedData;
+            ItemPatch.ApplyOverrides();
             Main.logger.Log($"Loaded {ItemPatch.overrides.Count} saved crate prefab overrides.");
         }
     }

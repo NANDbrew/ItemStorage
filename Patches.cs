@@ -12,16 +12,38 @@ namespace ItemStorage
         internal static Dictionary<int, Tuple<int, bool>> overrides = new Dictionary<int, Tuple<int, bool>>();
         static ShipItemCrate targetedCrate;
 
-        internal static void OverrideContainedPrefab(ShipItemCrate crate, int prefabIndex)
-        {
-            Traverse.Create(crate).Field<GameObject>("containedPrefab").Value
-                = PrefabsDirectory.instance.directory[prefabIndex];
-        }
-
         static void RegisterOverride(ShipItemCrate crate, int newPrefabIndex, bool isCooked)
         {
-            var crateGUID = crate.GetComponent<GUID>().ID;
-            overrides[crateGUID] = new Tuple<int, bool>(newPrefabIndex, isCooked);
+            var crateID = crate.GetComponent<GUID>().ID;
+            overrides[crateID] = new Tuple<int, bool>(newPrefabIndex, isCooked);
+        }
+
+        internal static void ApplyOverrides()
+        {
+            foreach (var crateOverride in overrides)
+            {
+                var crateID = crateOverride.Key;
+                var crateObject = GUID.FindObjectByID(crateID);
+                var crate = crateObject.GetComponent<ShipItemCrate>();
+
+                var newItemPrefabIndex = crateOverride.Value.Item1;
+                var newItemPrefab = PrefabsDirectory.instance.directory[newItemPrefabIndex];
+                var newItem = newItemPrefab.GetComponent<ShipItem>();
+
+                var itemCooked = crateOverride.Value.Item2;
+
+                ApplyOverride(crate, newItem, itemCooked);
+            }
+        }
+
+        static void ApplyOverride(ShipItemCrate crate, ShipItem newItem, bool isCooked)
+        {
+            Traverse.Create(crate).Field<GameObject>("containedPrefab").Value = newItem.gameObject;
+            crate.gameObject.name = "custom crate";
+            crate.name = newItem.name;
+            crate.tag = newItem.tag;
+            crate.category = newItem.category;
+            crate.smokedFood = isCooked;
         }
 
         [HarmonyPatch("Update"), HarmonyPostfix]
@@ -72,21 +94,12 @@ namespace ItemStorage
                     if (__instance.GetComponent<CookableFood>() && __instance.amount >= 1.75f)
                         return true;
 
-                    // Time for some code atrocities, courtesy of reflection!
-                    OverrideContainedPrefab(targetedCrate, thisPrefabIndex);
-
-                    targetedCrate.gameObject.name = "custom crate";
-                    targetedCrate.name = __instance.name;
-                    targetedCrate.tag = __instance.tag;
-                    targetedCrate.category = __instance.category;
-                    targetedCrate.amount = 1f;
-
                     var isCooked = __instance.GetComponent<CookableFood>() &&
                         __instance.amount >= 1f && __instance.amount < 1.75f;
-                    if (isCooked)
-                        targetedCrate.smokedFood = true;
 
+                    // Time for some code atrocities, courtesy of reflection!
                     RegisterOverride(targetedCrate, thisPrefabIndex, isCooked);
+                    ApplyOverride(targetedCrate, __instance, isCooked);
 
                     __instance.DestroyItem();
                     return false;
